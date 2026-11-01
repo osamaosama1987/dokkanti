@@ -1,0 +1,50 @@
+name: Build Dokkanti APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '*.zip'
+      - '.github/workflows/android-build.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get project
+        uses: actions/checkout@v4
+
+      - name: Find and extract project
+        run: |
+          ZIP_FILE=$(find . -maxdepth 1 -name '*.zip' | head -n 1)
+          test -n "$ZIP_FILE"
+          mkdir project
+          unzip "$ZIP_FILE" -d project
+          echo "PROJECT_DIR=$PWD/project" >> "$GITHUB_ENV"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build APK
+        run: |
+          cd "$PROJECT_DIR"
+          BUILD_FILE=$(find . -name settings.gradle -o -name settings.gradle.kts | head -n 1)
+          test -n "$BUILD_FILE"
+          cd "$(dirname "$BUILD_FILE")"
+          gradle assembleDebug
+
+      - name: Save APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Dokkanti-APK
+          path: project/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
